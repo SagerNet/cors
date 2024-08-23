@@ -59,6 +59,9 @@ type Options struct {
 	// cookies, HTTP authentication or client side SSL certificates.
 	AllowCredentials bool
 
+	// AllowPrivateNetwork allows requests from private networks
+	AllowPrivateNetwork bool
+
 	// MaxAge indicates how long (in seconds) the results of a preflight request
 	// can be cached
 	MaxAge int
@@ -106,18 +109,20 @@ type Cors struct {
 	// Set to true when allowed headers contains a "*"
 	allowedHeadersAll bool
 
-	allowCredentials  bool
-	optionPassthrough bool
+	allowCredentials    bool
+	allowPrivateNetwork bool
+	optionPassthrough   bool
 }
 
 // New creates a new Cors handler with the provided options.
 func New(options Options) *Cors {
 	c := &Cors{
-		exposedHeaders:    convert(options.ExposedHeaders, http.CanonicalHeaderKey),
-		allowOriginFunc:   options.AllowOriginFunc,
-		allowCredentials:  options.AllowCredentials,
-		maxAge:            options.MaxAge,
-		optionPassthrough: options.OptionsPassthrough,
+		exposedHeaders:      convert(options.ExposedHeaders, http.CanonicalHeaderKey),
+		allowOriginFunc:     options.AllowOriginFunc,
+		allowCredentials:    options.AllowCredentials,
+		allowPrivateNetwork: options.AllowPrivateNetwork,
+		maxAge:              options.MaxAge,
+		optionPassthrough:   options.OptionsPassthrough,
 	}
 	if options.Debug && c.Log == nil {
 		c.Log = log.New(os.Stdout, "[cors] ", log.LstdFlags)
@@ -277,6 +282,10 @@ func (c *Cors) handlePreflight(w http.ResponseWriter, r *http.Request) {
 		// Spec says: Since the list of headers can be unbounded, simply returning supported headers
 		// from Access-Control-Request-Headers can be enough
 		headers.Set("Access-Control-Allow-Headers", strings.Join(reqHeaders, ", "))
+	}
+	reqPrivateNetwork := r.Header.Get("Access-Control-Request-Private-Network") == "true"
+	if reqPrivateNetwork && c.allowPrivateNetwork {
+		headers.Set("Access-Control-Allow-Private-Network", "true")
 	}
 	if c.allowCredentials {
 		headers.Set("Access-Control-Allow-Credentials", "true")
